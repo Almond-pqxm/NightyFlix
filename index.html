@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NightyFlix Global - Ultimate Shuffle</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    
+    <style>
+        body { font-family: 'Kanit', sans-serif; background-color: #050505; color: white; overflow-x: hidden; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .movie-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .movie-card:hover { transform: translateY(-8px) scale(1.02); }
+        
+        .active-tab { color: #ef4444 !important; border-bottom: 2px solid #ef4444; }
+        .glass-header { background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .shuffle-btn { background: linear-gradient(135deg, #ef4444, #b91c1c); transition: all 0.3s ease; }
+        .shuffle-btn:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
+    </style>
+</head>
+<body class="bg-[#050505] min-h-screen">
+
+    <!-- Navigation -->
+    <nav class="glass-header sticky top-0 z-[100] px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-8">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="switchView('Browse')">
+                    <div class="w-9 h-9 bg-red-600 rounded-lg flex items-center justify-center font-black italic shadow-lg shadow-red-600/30">N</div>
+                    <span class="text-2xl font-black tracking-tighter uppercase hidden sm:block">Nighty<span class="text-red-600">Flix</span></span>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-400">
+                    <button onclick="switchView('Browse')" class="nav-link active-tab" id="nav-Browse">Browse</button>
+                    <button onclick="switchView('Shuffle')" class="nav-link" id="nav-Shuffle">Shuffle (สุ่มหนัง)</button>
+                    <button onclick="switchView('Watchlist')" class="nav-link" id="nav-Watchlist">My List</button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="relative hidden sm:block">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                    <input type="text" oninput="handleSearch(this.value)" placeholder="Search globally..." class="bg-[#111] border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-red-600/50 transition-all w-48">
+                </div>
+                <button onclick="switchView('Watchlist')" class="relative p-2 text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-bookmark"></i>
+                    <span id="watchlistCount" class="absolute -top-1 -right-1 bg-red-600 text-[10px] text-white w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Views -->
+    <main class="max-w-7xl mx-auto px-6 py-10 pb-32">
+        
+        <!-- View: BROWSE -->
+        <section id="view-Browse" class="view">
+            <div class="mb-10 flex flex-wrap items-center justify-between gap-4">
+                <h2 class="text-3xl font-black">TOP <span class="text-red-600">GLOBAL</span> PICKS</h2>
+                <div class="flex gap-2">
+                    <button onclick="filterMovies('All')" class="region-btn bg-red-600 px-4 py-1.5 rounded-full text-xs font-bold">All</button>
+                    <button onclick="filterMovies('Hollywood')" class="region-btn bg-[#111] px-4 py-1.5 rounded-full text-xs font-bold border border-white/5">Hollywood</button>
+                    <button onclick="filterMovies('Asia')" class="region-btn bg-[#111] px-4 py-1.5 rounded-full text-xs font-bold border border-white/5">Asia</button>
+                    <button onclick="filterMovies('Anime')" class="region-btn bg-[#111] px-4 py-1.5 rounded-full text-xs font-bold border border-white/5">Anime</button>
+                </div>
+            </div>
+            <div id="movieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"></div>
+        </section>
+
+        <!-- View: SHUFFLE -->
+        <section id="view-Shuffle" class="view hidden">
+            <div class="max-w-2xl mx-auto text-center py-10">
+                <h2 class="text-4xl font-black mb-4">Can't Decide? <span class="text-red-600">Shuffle!</span></h2>
+                <p class="text-gray-400 mb-10">Let our system pick a movie from our global database based on your preference.</p>
+                
+                <div class="bg-[#111] p-8 rounded-[2rem] border border-white/10 shadow-2xl mb-12">
+                    <div class="mb-8">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-4 text-left">Choose Region</label>
+                        <div class="grid grid-cols-3 gap-3" id="shuffle-regions">
+                            <button onclick="setShuffleRegion('All')" class="s-reg-btn active-tab bg-[#1a1a1a] p-3 rounded-xl border border-red-600/50 text-xs font-bold">All Regions</button>
+                            <button onclick="setShuffleRegion('Hollywood')" class="s-reg-btn bg-[#1a1a1a] p-3 rounded-xl border border-white/5 text-xs font-bold">Hollywood</button>
+                            <button onclick="setShuffleRegion('Asia')" class="s-reg-btn bg-[#1a1a1a] p-3 rounded-xl border border-white/5 text-xs font-bold">Asia Hits</button>
+                        </div>
+                    </div>
+                    
+                    <button onclick="performShuffle()" class="shuffle-btn w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-dice text-2xl"></i>
+                        SHUFFLE NOW
+                    </button>
+                </div>
+
+                <div id="shuffleResult" class="hidden animate-in fade-in zoom-in-95 duration-500">
+                    <p class="text-red-500 font-bold text-sm mb-4">OUR PICK FOR YOU:</p>
+                    <div id="resultCard" class="max-w-xs mx-auto"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: WATCHLIST -->
+        <section id="view-Watchlist" class="view hidden">
+            <h2 class="text-3xl font-black mb-10">MY <span class="text-red-600">WATCHLIST</span></h2>
+            <div id="watchlistGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"></div>
+            <div id="watchlistEmpty" class="hidden text-center py-20 text-gray-600">
+                <i class="fa-solid fa-bookmark text-6xl mb-4 opacity-20"></i>
+                <p>Your list is empty. Browse and add some movies!</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Movie -->
+    <div id="movieModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="closeModal()"></div>
+        <div class="bg-[#111] w-full max-w-4xl rounded-3xl overflow-hidden relative z-10 border border-white/10 flex flex-col md:flex-row shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-4 right-4 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-20">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="modalPoster" class="w-full md:w-1/3 aspect-[2/3]"></div>
+            <div id="modalBody" class="p-8 md:p-12 flex-1"></div>
+        </div>
+    </div>
+
+    <script>
+        const movieDB = [
+            // Hollywood
+            { id: 1, title: 'Oppenheimer', year: 2023, region: 'Hollywood', rating: 8.4, img: 'https://image.tmdb.org/t/p/w500/8Gxv2mYqlLqzqS7S8Z2S0Yv26oX.jpg', desc: "The story of J. Robert Oppenheimer and the development of the atomic bomb." },
+            { id: 2, title: 'Dune: Part Two', year: 2024, region: 'Hollywood', rating: 8.9, img: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg', desc: "Paul Atreides unites with the Fremen while on a warpath of revenge." },
+            { id: 3, title: 'Interstellar', year: 2014, region: 'Hollywood', rating: 8.7, img: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', desc: "Exploring a wormhole in space to ensure humanity's survival." },
+            { id: 4, title: 'The Dark Knight', year: 2008, region: 'Hollywood', rating: 9.0, img: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg', desc: "Batman faces the Joker in a fight for Gotham's soul." },
+            { id: 5, title: 'Avatar: Way of Water', year: 2022, region: 'Hollywood', rating: 7.6, img: 'https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg', desc: "Jake Sully lives with his newfound family on Pandora." },
+            // Asia
+            { id: 6, title: 'Parasite', year: 2019, region: 'Asia', rating: 8.5, img: 'https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg', desc: "A symbiotic relationship forms between a wealthy and a destitute family." },
+            { id: 7, title: 'The Medium', year: 2021, region: 'Asia', rating: 6.5, img: 'https://image.tmdb.org/t/p/w500/m67S9IDUvSclXy9asv8596vff0.jpg', desc: "A horrifying shaman inheritance story from Thailand." },
+            { id: 8, title: 'How to Make Millions', year: 2024, region: 'Asia', rating: 8.4, img: 'https://upload.wikimedia.org/wikipedia/en/8/88/How_to_Make_Millions_Before_Grandma_Dies_poster.jpg', desc: "A young man cares for his grandma hoping for inheritance." },
+            { id: 9, title: 'Bad Genius', year: 2017, region: 'Asia', rating: 7.6, img: 'https://image.tmdb.org/t/p/w500/aKuFiU82s5ISJpGZp7YkIr3kGUb.jpg', desc: "A genius student makes money by facilitating cheating." },
+            { id: 10, title: 'Godzilla Minus One', year: 2023, region: 'Asia', rating: 8.0, img: 'https://image.tmdb.org/t/p/w500/hkxxM9nmvF76p2Lb7fOpXzKi8tN.jpg', desc: "Post-war Japan faces a giant monster threat." },
+            // Anime
+            { id: 11, title: 'Your Name', year: 2016, region: 'Anime', rating: 8.5, img: 'https://image.tmdb.org/t/p/w500/q719jXXEzOoYaps6babgKnONONX.jpg', desc: "Two strangers find themselves linked in a bizarre way." },
+            { id: 12, title: 'Spirited Away', year: 2001, region: 'Anime', rating: 8.6, img: 'https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg', desc: "A girl wanders into a world of gods and spirits." },
+            { id: 13, title: 'Suzume', year: 2022, region: 'Anime', rating: 7.9, img: 'https://image.tmdb.org/t/p/w500/v9p9pUqfF7q7pUqfF7q7pUqfF7q.jpg', desc: "A 17-year-old girl helps close doors to other side." },
+            { id: 14, title: 'Demon Slayer: Mugen', year: 2020, region: 'Anime', rating: 8.2, img: 'https://image.tmdb.org/t/p/w500/h8Rb9gBr48ODIwYUttZNYeMWeUU.jpg', desc: "Tanjiro fights on a mysterious train." },
+            { id: 15, title: 'Attack on Titan', year: 2013, region: 'Anime', rating: 9.1, img: 'https://image.tmdb.org/t/p/w500/h8Rb9gBr48ODIwYUttZNYeMWeUU.jpg', desc: "Humanity fights against man-eating giants." },
+            // More Hollywood
+            { id: 16, title: 'Avengers: Endgame', year: 2019, region: 'Hollywood', rating: 8.4, img: 'https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg', desc: "The Avengers assemble for one final stand." },
+            { id: 17, title: 'The Matrix', year: 1999, region: 'Hollywood', rating: 8.7, img: 'https://image.tmdb.org/t/p/w500/f89U3ADr1tn5AEn3AMGuDuffmCQ.jpg', desc: "Reality is a computer simulation." },
+            { id: 18, title: 'Fight Club', year: 1999, region: 'Hollywood', rating: 8.8, img: 'https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg', desc: "Underground fight clubs challenge consumerism." },
+            { id: 19, title: 'Spider-Man: Across', year: 2023, region: 'Hollywood', rating: 8.6, img: 'https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg', desc: "Miles Morales travels across the Multiverse." },
+            { id: 20, title: 'Joker', year: 2019, region: 'Hollywood', rating: 8.4, img: 'https://image.tmdb.org/t/p/w500/udDclJoHjfjb8EkGsdr7JD7Uk6.jpg', desc: "Arthur Fleck descends into madness." }
+        ];
+
+        let watchlist = JSON.parse(localStorage.getItem('nighty_global_wl')) || [];
+        let shuffleRegion = 'All';
+
+        window.onload = () => {
+            renderMovies(movieDB);
+            updateWatchlistCount();
+        };
+
+        function switchView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active-tab'));
+            document.getElementById(`nav-${viewName}`).classList.add('active-tab');
+
+            if(viewName === 'Watchlist') renderWatchlist();
+        }
+
+        function createMovieCard(movie) {
+            const isSaved = watchlist.includes(movie.id);
+            return `
+                <div class="movie-card group cursor-pointer" onclick="openModal(${movie.id})">
+                    <div class="relative aspect-[2/3] rounded-2xl overflow-hidden bg-[#111] border border-white/5 shadow-xl">
+                        <img src="${movie.img}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/400x600/111/444?text=${movie.title}'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                            <button onclick="event.stopPropagation(); toggleWatchlist(${movie.id})" class="w-full py-2 ${isSaved ? 'bg-red-600' : 'bg-white text-black'} text-[10px] font-bold rounded-lg transition-all mb-2">
+                                ${isSaved ? 'REMOVE FROM LIST' : 'ADD TO LIST'}
+                            </button>
+                            <span class="text-[9px] text-gray-400 uppercase font-black">${movie.region}</span>
+                        </div>
+                        <div class="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 flex items-center gap-1">
+                            <i class="fa-solid fa-star text-yellow-500 text-[9px]"></i>
+                            <span class="text-[10px] font-bold">${movie.rating}</span>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h4 class="font-bold text-sm text-white truncate group-hover:text-red-500 transition-colors">${movie.title}</h4>
+                        <p class="text-[10px] text-gray-500">${movie.year}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMovies(list) {
+            const grid = document.getElementById('movieGrid');
+            grid.innerHTML = list.map(m => createMovieCard(m)).join('');
+        }
+
+        function filterMovies(region) {
+            document.querySelectorAll('.region-btn').forEach(btn => {
+                if(btn.innerText === region) btn.classList.add('bg-red-600');
+                else {
+                    btn.classList.remove('bg-red-600');
+                    btn.classList.add('bg-[#111]');
+                }
+            });
+            const filtered = region === 'All' ? movieDB : movieDB.filter(m => m.region === region);
+            renderMovies(filtered);
+        }
+
+        function handleSearch(val) {
+            const query = val.toLowerCase();
+            const filtered = movieDB.filter(m => m.title.toLowerCase().includes(query));
+            renderMovies(filtered);
+        }
+
+        // Shuffle Logic
+        function setShuffleRegion(region) {
+            shuffleRegion = region;
+            document.querySelectorAll('.s-reg-btn').forEach(btn => {
+                if(btn.innerText.includes(region) || (region === 'All' && btn.innerText.includes('All'))) {
+                    btn.classList.add('border-red-600/50', 'active-tab');
+                    btn.classList.remove('border-white/5');
+                } else {
+                    btn.classList.remove('border-red-600/50', 'active-tab');
+                    btn.classList.add('border-white/5');
+                }
+            });
+        }
+
+        function performShuffle() {
+            const resultDiv = document.getElementById('shuffleResult');
+            const cardDiv = document.getElementById('resultCard');
+            
+            const pool = shuffleRegion === 'All' ? movieDB : movieDB.filter(m => m.region === shuffleRegion);
+            const randomMovie = pool[Math.floor(Math.random() * pool.length)];
+
+            cardDiv.innerHTML = `<div class="animate-pulse flex items-center justify-center h-48 bg-[#1a1a1a] rounded-2xl border border-white/5">Picking...</div>`;
+            resultDiv.classList.remove('hidden');
+
+            setTimeout(() => {
+                cardDiv.innerHTML = createMovieCard(randomMovie);
+                showToast(`System picked: ${randomMovie.title}`);
+            }, 800);
+        }
+
+        // Modal Logic
+        function openModal(id) {
+            const movie = movieDB.find(m => m.id === id);
+            const modal = document.getElementById('movieModal');
+            const poster = document.getElementById('modalPoster');
+            const body = document.getElementById('modalBody');
+            const isSaved = watchlist.includes(movie.id);
+
+            poster.innerHTML = `<img src="${movie.img}" class="w-full h-full object-cover">`;
+            body.innerHTML = `
+                <div class="flex gap-2 mb-4">
+                    <span class="bg-red-600 text-[10px] font-bold px-3 py-1 rounded-full">${movie.region}</span>
+                    <span class="bg-[#222] text-[10px] font-bold px-3 py-1 rounded-full">${movie.year}</span>
+                </div>
+                <h2 class="text-4xl font-black mb-4">${movie.title}</h2>
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="text-yellow-500 font-bold flex items-center gap-1"><i class="fa-solid fa-star"></i> ${movie.rating}</div>
+                    <div class="text-green-500 font-bold text-sm">98% Recommendation</div>
+                </div>
+                <p class="text-gray-400 leading-relaxed mb-10 text-lg border-l-4 border-red-600 pl-4">"${movie.desc}"</p>
+                <div class="flex gap-4">
+                    <button class="bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all">Watch Now</button>
+                    <button onclick="toggleWatchlist(${movie.id}); openModal(${movie.id})" class="px-8 py-3 rounded-xl font-bold bg-[#222] border border-white/10">
+                        ${isSaved ? 'Remove' : 'Save to List'}
+                    </button>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('movieModal').classList.add('hidden');
+        }
+
+        // Watchlist Logic
+        function toggleWatchlist(id) {
+            const idx = watchlist.indexOf(id);
+            if(idx > -1) {
+                watchlist.splice(idx, 1);
+                showToast("Removed from List");
+            } else {
+                watchlist.push(id);
+                showToast("Saved to List!");
+            }
+            localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+            updateWatchlistCount();
+            renderWatchlist();
+            renderMovies(movieDB);
+        }
+
+        function updateWatchlistCount() {
+            document.getElementById('watchlistCount').innerText = watchlist.length;
+        }
+
+        function renderWatchlist() {
+            const grid = document.getElementById('watchlistGrid');
+            const empty = document.getElementById('watchlistEmpty');
+            const list = movieDB.filter(m => watchlist.includes(m.id));
+            
+            if(list.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                grid.innerHTML = list.map(m => createMovieCard(m)).join('');
+            }
+        }
+
+        function showToast(msg) {
+            Toastify({ text: msg, duration: 2000, gravity: "bottom", position: "right", style: { background: "#111", border: "1px solid #333", borderRadius: "12px", fontSize: "12px", fontWeight: "bold" } }).showToast();
+        }
+    </script>
+</body>
+</html>
