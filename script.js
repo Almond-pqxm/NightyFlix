@@ -8,12 +8,12 @@ let watchlist = JSON.parse(localStorage.getItem('nighty_global_wl')) || [];
 let shuffleRegion = 'All';
 
 // Initial Load
+// Initial Load
 window.onload = () => {
-    if (API_KEY === '693b461f399ad0e40195a29b642c310c') {
-        showToast("กรุณาใส่ API Key ในไฟล์ script.js");
-    } else {
-        getMoviesFromAPI();
-    }
+    // สั่งดึงข้อมูลจาก API ทันที
+    getMoviesFromAPI();
+    
+    // อัปเดตตัวเลขใน Watchlist
     updateWatchlistCount();
 };
 
