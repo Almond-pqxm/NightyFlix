@@ -1,86 +1,38 @@
-/* Base Style */
 body { 
     font-family: 'Kanit', sans-serif; 
-    letter-spacing: -0.01em;
+    background-color: #050505; 
+    color: white; 
+    overflow-x: hidden; 
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #080808; }
-::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: #ef4444; }
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Navigation Glass Effect */
-.glass-header { 
-    background: rgba(8, 8, 8, 0.8); 
-    backdrop-filter: blur(15px); 
-    border-bottom: 1px solid rgba(255,255,255,0.08); 
+.movie-card { 
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
 }
 
-/* Nav Link Styling */
+.movie-card:hover { 
+    transform: translateY(-8px) scale(1.02); 
+}
+
 .active-tab { 
     color: #ef4444 !important; 
-    opacity: 1 !important;
-    position: relative;
-}
-.active-tab::after {
-    content: '';
-    position: absolute;
-    bottom: -18px;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: #ef4444;
-    border-radius: 10px;
-    box-shadow: 0 0 10px #ef4444;
+    border-bottom: 2px solid #ef4444; 
 }
 
-/* Movie Card Animation */
-.movie-card { 
-    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1); 
-}
-.movie-card:hover { 
-    transform: translateY(-12px) scale(1.03);
-}
-.movie-card:hover img {
-    filter: brightness(1.1);
+.glass-header { 
+    background: rgba(5, 5, 5, 0.85); 
+    backdrop-filter: blur(20px); 
+    border-bottom: 1px solid rgba(255,255,255,0.05); 
 }
 
-/* Shuffle Button Neon */
 .shuffle-btn { 
-    background: linear-gradient(135deg, #ef4444, #991b1b); 
-    box-shadow: 0 10px 30px rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, #ef4444, #b91c1c); 
+    transition: all 0.3s ease; 
 }
+
 .shuffle-btn:hover { 
-    transform: translateY(-2px);
-    box-shadow: 0 15px 40px rgba(239, 68, 68, 0.5); 
-}
-
-/* Shuffle Region Active State */
-.active-tab-btn {
-    background: rgba(239, 68, 68, 0.1) !important;
-    border-color: rgba(239, 68, 68, 0.5) !important;
-    color: #ef4444;
-}
-
-/* Glow Effects */
-.glow-text {
-    text-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
-}
-
-/* Custom Modal Image Style */
-#modalPoster img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Fade in for grid */
-#movieGrid {
-    animation: fadeIn 0.8s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    transform: scale(1.05); 
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); 
 }

@@ -3,134 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NightyFlix Global - Premium Shuffle</title>
+    <title>NightyFlix Global - Ultimate Shuffle</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;400;600;800&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-[#080808] text-gray-100 min-h-screen selection:bg-red-600/30">
+<body class="bg-[#050505] min-h-screen">
 
-    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-red-600/10 blur-[120px] rounded-full -z-10"></div>
-
-    <nav class="glass-header sticky top-0 z-[100] px-4 md:px-8 py-4">
+    <nav class="glass-header sticky top-0 z-[100] px-6 py-4">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-10">
-                <div class="flex items-center gap-2 cursor-pointer group" onclick="switchView('Browse')">
-                    <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center font-black italic shadow-[0_0_20px_rgba(220,38,38,0.5)] group-hover:scale-110 transition-transform">N</div>
-                    <span class="text-2xl font-black tracking-tighter uppercase hidden sm:block">Nighty<span class="text-red-600 glow-text">Flix</span></span>
+            <div class="flex items-center gap-8">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="switchView('Browse')">
+                    <div class="w-9 h-9 bg-red-600 rounded-lg flex items-center justify-center font-black italic shadow-lg shadow-red-600/30">N</div>
+                    <span class="text-2xl font-black tracking-tighter uppercase hidden sm:block">Nighty<span class="text-red-600">Flix</span></span>
                 </div>
-                
-                <div class="hidden md:flex items-center gap-8 text-sm font-semibold uppercase tracking-wider">
-                    <button onclick="switchView('Browse')" class="nav-link opacity-60 hover:opacity-100 transition-all" id="nav-Browse">Browse</button>
-                    <button onclick="switchView('Shuffle')" class="nav-link opacity-60 hover:opacity-100 transition-all" id="nav-Shuffle">Shuffle</button>
-                    <button onclick="switchView('Watchlist')" class="nav-link opacity-60 hover:opacity-100 transition-all" id="nav-Watchlist">My List</button>
+                <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-400">
+                    <button onclick="switchView('Browse')" class="nav-link active-tab" id="nav-Browse">Browse</button>
+                    <button onclick="switchView('Shuffle')" class="nav-link" id="nav-Shuffle">Shuffle (สุ่มหนัง)</button>
+                    <button onclick="switchView('Watchlist')" class="nav-link" id="nav-Watchlist">My List</button>
                 </div>
             </div>
             
-            <div class="flex items-center gap-5">
-                <div class="relative hidden lg:block group">
-                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-red-500 transition-colors"></i>
-                    <input type="text" oninput="handleSearch(this.value)" placeholder="Search movies..." 
-                           class="bg-white/5 border border-white/10 rounded-full py-2 pl-11 pr-5 text-sm focus:outline-none focus:ring-2 focus:ring-red-600/50 focus:bg-white/10 transition-all w-64">
+            <div class="flex items-center gap-4">
+                <div class="relative hidden sm:block">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                    <input type="text" oninput="handleSearch(this.value)" placeholder="Search globally..." class="bg-[#111] border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-red-600/50 transition-all w-48">
                 </div>
-                
-                <button onclick="switchView('Watchlist')" class="relative p-2.5 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all">
-                    <i class="fa-solid fa-bookmark text-gray-300"></i>
-                    <span id="watchlistCount" class="absolute -top-1 -right-1 bg-red-600 text-[10px] text-white w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-lg shadow-red-600/40 border-2 border-[#080808]">0</span>
+                <button onclick="switchView('Watchlist')" class="relative p-2 text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-bookmark"></i>
+                    <span id="watchlistCount" class="absolute -top-1 -right-1 bg-red-600 text-[10px] text-white w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
                 </button>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-6 py-12">
-        
+    <main class="max-w-7xl mx-auto px-6 py-10 pb-32">
         <section id="view-Browse" class="view">
-            <div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <p class="text-red-500 font-bold tracking-[0.3em] text-xs mb-2 uppercase">Discover</p>
-                    <h2 class="text-4xl md:text-5xl font-black tracking-tight">TRENDING <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-400">NOW</span></h2>
-                </div>
-                <div class="flex p-1 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md">
-                    <button onclick="filterMovies('All')" class="region-btn px-6 py-2 rounded-xl text-xs font-bold transition-all bg-red-600 shadow-lg shadow-red-600/20">All</button>
-                    <button onclick="filterMovies('Hollywood')" class="region-btn px-6 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/5">Hollywood</button>
-                    <button onclick="filterMovies('Asia')" class="region-btn px-6 py-2 rounded-xl text-xs font-bold transition-all hover:bg-white/5">Asia</button>
+            <div class="mb-10 flex flex-wrap items-center justify-between gap-4">
+                <h2 class="text-3xl font-black">TOP <span class="text-red-600">GLOBAL</span> PICKS</h2>
+                <div class="flex gap-2">
+                    <button onclick="filterMovies('All')" class="region-btn bg-red-600 px-4 py-1.5 rounded-full text-xs font-bold">All</button>
+                    <button onclick="filterMovies('Hollywood')" class="region-btn bg-[#111] px-4 py-1.5 rounded-full text-xs font-bold border border-white/5">Hollywood</button>
+                    <button onclick="filterMovies('Asia')" class="region-btn bg-[#111] px-4 py-1.5 rounded-full text-xs font-bold border border-white/5">Asia</button>
+                    <button onclick="filterMovies('Anime')" class="region-btn bg-[#111] px-4 py-1.5 rounded-full text-xs font-bold border border-white/5">Anime</button>
                 </div>
             </div>
-            <div id="movieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-6 gap-y-10"></div>
+            <div id="movieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"></div>
         </section>
 
         <section id="view-Shuffle" class="view hidden">
-            <div class="max-w-3xl mx-auto text-center py-10">
-                <div class="inline-block p-3 bg-red-600/10 rounded-2xl mb-6">
-                    <i class="fa-solid fa-dice text-4xl text-red-600 animate-bounce"></i>
-                </div>
-                <h2 class="text-5xl font-black mb-4 tracking-tighter text-white">DON'T KNOW <br><span class="text-red-600 italic">WHAT TO WATCH?</span></h2>
-                <p class="text-gray-400 text-lg mb-12 font-light">กดปุ่มสุ่มเพื่อค้นหาภาพยนตร์ที่คุณอาจจะชอบจากฐานข้อมูลทั่วโลก</p>
+            <div class="max-w-2xl mx-auto text-center py-10">
+                <h2 class="text-4xl font-black mb-4">Can't Decide? <span class="text-red-600">Shuffle!</span></h2>
+                <p class="text-gray-400 mb-10">Let our system pick a movie from our global database based on your preference.</p>
                 
-                <div class="bg-gradient-to-b from-white/10 to-transparent p-[1px] rounded-[2.5rem] shadow-2xl">
-                    <div class="bg-[#111]/90 backdrop-blur-xl p-10 rounded-[2.5rem]">
-                        <div class="mb-10 text-left">
-                            <label class="text-[11px] font-bold text-gray-500 uppercase tracking-widest block mb-5 ml-2">Select Your Preference</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="shuffle-regions">
-                                <button onclick="setShuffleRegion('All')" class="s-reg-btn active-tab-btn flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all">
-                                    <i class="fa-solid fa-globe text-xl"></i>
-                                    <span class="text-xs font-bold uppercase">All Regions</span>
-                                </button>
-                                <button onclick="setShuffleRegion('Hollywood')" class="s-reg-btn flex flex-col items-center gap-3 p-5 rounded-2xl border border-white/5 bg-white/5 transition-all">
-                                    <i class="fa-solid fa-film text-xl"></i>
-                                    <span class="text-xs font-bold uppercase">Hollywood</span>
-                                </button>
-                                <button onclick="setShuffleRegion('Asia')" class="s-reg-btn flex flex-col items-center gap-3 p-5 rounded-2xl border border-white/5 bg-white/5 transition-all">
-                                    <i class="fa-solid fa-dragon text-xl"></i>
-                                    <span class="text-xs font-bold uppercase">Asia Hits</span>
-                                </button>
-                            </div>
+                <div class="bg-[#111] p-8 rounded-[2rem] border border-white/10 shadow-2xl mb-12">
+                    <div class="mb-8">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-4 text-left">Choose Region</label>
+                        <div class="grid grid-cols-3 gap-3" id="shuffle-regions">
+                            <button onclick="setShuffleRegion('All')" class="s-reg-btn active-tab bg-[#1a1a1a] p-3 rounded-xl border border-red-600/50 text-xs font-bold">All Regions</button>
+                            <button onclick="setShuffleRegion('Hollywood')" class="s-reg-btn bg-[#1a1a1a] p-3 rounded-xl border border-white/5 text-xs font-bold">Hollywood</button>
+                            <button onclick="setShuffleRegion('Asia')" class="s-reg-btn bg-[#1a1a1a] p-3 rounded-xl border border-white/5 text-xs font-bold">Asia Hits</button>
                         </div>
-                        
-                        <button onclick="performShuffle()" class="shuffle-btn group w-full py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-4 transition-all">
-                            <span>SHUFFLE NOW</span>
-                            <i class="fa-solid fa-bolt-lightning group-hover:rotate-12 transition-transform"></i>
-                        </button>
                     </div>
+                    
+                    <button onclick="performShuffle()" class="shuffle-btn w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-dice text-2xl"></i>
+                        SHUFFLE NOW
+                    </button>
                 </div>
 
-                <div id="shuffleResult" class="hidden mt-16 animate-in fade-in slide-in-from-bottom-10 duration-700">
-                    <div class="flex items-center justify-center gap-3 mb-8">
-                        <div class="h-[1px] w-12 bg-red-600"></div>
-                        <p class="text-red-500 font-black text-sm uppercase tracking-widest">Your Destiny Pick</p>
-                        <div class="h-[1px] w-12 bg-red-600"></div>
-                    </div>
-                    <div id="resultCard" class="max-w-xs mx-auto transform hover:scale-105 transition-transform duration-500"></div>
+                <div id="shuffleResult" class="hidden animate-in fade-in zoom-in-95 duration-500">
+                    <p class="text-red-500 font-bold text-sm mb-4">OUR PICK FOR YOU:</p>
+                    <div id="resultCard" class="max-w-xs mx-auto"></div>
                 </div>
             </div>
         </section>
 
         <section id="view-Watchlist" class="view hidden">
-            <h2 class="text-4xl font-black mb-12">MY <span class="text-red-600">LIST</span></h2>
+            <h2 class="text-3xl font-black mb-10">MY <span class="text-red-600">WATCHLIST</span></h2>
             <div id="watchlistGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"></div>
-            <div id="watchlistEmpty" class="hidden flex flex-col items-center justify-center py-32 text-center">
-                <div class="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                    <i class="fa-solid fa-plus text-3xl opacity-20"></i>
-                </div>
-                <p class="text-gray-500 text-lg">Your list is looking a bit lonely.</p>
-                <button onclick="switchView('Browse')" class="mt-4 text-red-500 font-bold hover:underline">Go explore some movies</button>
+            <div id="watchlistEmpty" class="hidden text-center py-20 text-gray-600">
+                <i class="fa-solid fa-bookmark text-6xl mb-4 opacity-20"></i>
+                <p>Your list is empty. Browse and add some movies!</p>
             </div>
         </section>
     </main>
 
-    <div id="movieModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4 md:p-10">
-        <div class="absolute inset-0 bg-black/95 backdrop-blur-xl" onclick="closeModal()"></div>
-        <div class="bg-[#121212] w-full max-w-5xl rounded-[2rem] overflow-hidden relative z-10 border border-white/10 flex flex-col md:flex-row shadow-[0_0_100px_rgba(0,0,0,0.8)]">
-            <button onclick="closeModal()" class="absolute top-6 right-6 w-12 h-12 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-all z-20 group">
-                <i class="fa-solid fa-xmark group-hover:rotate-90 transition-transform"></i>
+    <div id="movieModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="closeModal()"></div>
+        <div class="bg-[#111] w-full max-w-4xl rounded-3xl overflow-hidden relative z-10 border border-white/10 flex flex-col md:flex-row shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-4 right-4 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-20">
+                <i class="fa-solid fa-xmark"></i>
             </button>
-            <div id="modalPoster" class="w-full md:w-[40%] aspect-[2/3] md:aspect-auto"></div>
-            <div id="modalBody" class="p-8 md:p-16 flex-1 flex flex-col justify-center"></div>
+            <div id="modalPoster" class="w-full md:w-1/3 aspect-[2/3]"></div>
+            <div id="modalBody" class="p-8 md:p-12 flex-1"></div>
         </div>
     </div>
 
