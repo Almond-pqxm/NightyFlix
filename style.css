@@ -37,3 +37,25 @@ body {
     box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); 
 }
 
+/* UI improvements */
+.filter-bar select, .filter-bar button {
+    color: #e5e7eb;
+}
+
+.movie-card-badge {
+    font-size: 10px;
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+.watchlist-btn {
+    transition: transform .12s ease;
+}
+.watchlist-btn:active { transform: scale(.97); }
+
+/* make modal content scrollable on small screens */
+#modalBody { max-height: 70vh; overflow-y: auto; }
+
+/* subtle card hover */
+.group:hover h4 { color: white; }
+

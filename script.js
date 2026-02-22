@@ -13,7 +13,59 @@ let isLoading = false;
 document.addEventListener('DOMContentLoaded', () => {
     updateWatchlistCount();
     getMoviesFromAPI(currentPage);
+    // register service worker for caching if supported
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed', err));
+    }
 });
+
+// keyboard shortcut: press '/' to focus search
+document.addEventListener('keydown', (e) => {
+    const active = document.activeElement;
+    if (e.key === '/' && active && active.tagName.toLowerCase() !== 'input' && active.tagName.toLowerCase() !== 'textarea') {
+        const search = document.querySelector('input[aria-label="Search movies"]');
+        if (search) { e.preventDefault(); search.focus(); }
+    }
+});
+
+// browse filter state
+const browseFilters = { region: '', year: '', sort: 'popular' };
+
+function applyBrowseFilters() {
+    const region = document.getElementById('browse-region')?.value || '';
+    const year = document.getElementById('browse-year')?.value || '';
+    const sort = document.getElementById('browse-sort')?.value || 'popular';
+    browseFilters.region = region;
+    browseFilters.year = year;
+    browseFilters.sort = sort;
+    renderMovies(movieDB);
+}
+
+function surpriseMe() {
+    // pick from currently filtered list
+    const filtered = filterAndSort(movieDB);
+    if (!filtered || filtered.length === 0) { showToast('ไม่พบหนังสำหรับสุ่ม'); return; }
+    const pick = filtered[Math.floor(Math.random() * filtered.length)];
+    if (pick) openModal(pick.id);
+}
+
+function filterAndSort(list) {
+    let out = Array.isArray(list) ? [...list] : [];
+    if (browseFilters.region) {
+        out = out.filter(m => m.region === browseFilters.region);
+    }
+    if (browseFilters.year) {
+        if (browseFilters.year === '2023') out = out.filter(m => (m.year !== 'N/A' && parseInt(m.year) >= 2023));
+        else if (browseFilters.year === '2010') out = out.filter(m => (m.year !== 'N/A' && parseInt(m.year) >= 2010 && parseInt(m.year) <= 2022));
+        else if (browseFilters.year === '2000') out = out.filter(m => (m.year === 'N/A' || parseInt(m.year) <= 2000));
+    }
+    if (browseFilters.sort === 'rating') {
+        out.sort((a,b) => parseFloat(b.rating) - parseFloat(a.rating));
+    } else if (browseFilters.sort === 'year-desc') {
+        out.sort((a,b) => (b.year === 'N/A' ? 0 : parseInt(b.year)) - (a.year === 'N/A' ? 0 : parseInt(a.year)));
+    }
+    return out;
+}
 
 // --- 1. ระบบจัดการเลื่อนโหลดหนัง (Infinite Scroll) ---
 async function getMoviesFromAPI(page = 1) {
@@ -127,7 +179,10 @@ function createMovieCard(movie) {
 
 function renderMovies(list) {
     const grid = document.getElementById('movieGrid');
-    if(grid) grid.innerHTML = list.map(m => createMovieCard(m)).join('');
+    if(grid) {
+        const visible = filterAndSort(list);
+        grid.innerHTML = visible.map(m => createMovieCard(m)).join('');
+    }
 }
 
 async function handleSearch(val) {
@@ -285,14 +340,19 @@ async function openModal(id) {
                     ${movie.overview || 'ไม่มีเรื่องย่อในภาษาไทย'}
                 </p>
 
-                <div class="bg-white/5 p-4 rounded-xl border border-white/10 mb-8">
-                    <p class="text-[10px] text-red-500 font-bold uppercase mb-3 tracking-widest italic">Available On (TH)</p>
-                    <div class="flex gap-3">
-                        ${providers.length > 0 ? 
-                            providers.map(p => `<img src="${IMG_URL}${p.logo_path}" title="${p.provider_name}" class="w-8 h-8 rounded-lg">`).join('') 
-                            : '<span class="text-gray-500 text-[10px] italic">NO STREAMING IN TH</span>'}
-                    </div>
-                </div>
+                        <div class="bg-white/5 p-4 rounded-xl border border-white/10 mb-8">
+                            <p class="text-[10px] text-red-500 font-bold uppercase mb-3 tracking-widest italic">Available On (TH)</p>
+                            <div class="flex gap-3 items-center">
+                                ${providers.length > 0 ? 
+                                    providers.map(p => {
+                                        const logo = p.logo_path ? IMG_URL + p.logo_path : '';
+                                        const q = encodeURIComponent((movie.title || movie.name) + ' ' + p.provider_name + ' watch');
+                                        const href = `https://www.google.com/search?q=${q}`;
+                                        return `<a href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Open ${p.provider_name}" class="inline-block"><img src="${logo}" title="${p.provider_name}" class="w-8 h-8 rounded-lg"></a>`;
+                                    }).join('') 
+                                    : '<span class="text-gray-500 text-[10px] italic">NO STREAMING IN TH</span>'}
+                            </div>
+                        </div>
                 
                 <button onclick="toggleWatchlist(${movie.id}).then(()=>openModal(${movie.id}))" 
                         class="mt-auto w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-xl ${isSaved ? 'bg-red-600 text-white' : 'bg-white text-black hover:bg-gray-200'}">
