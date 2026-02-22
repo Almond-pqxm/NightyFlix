@@ -65,5 +65,9 @@ body {
 .skeleton-sub { height: 10px; width: 40%; margin-top: 6px; border-radius: 6px; }
 .skeleton-card { height: 0; padding-bottom: 150%; position: relative; border-radius: 18px; overflow: hidden; }
 
+/* auth modal tweaks */
+#authModal input { width: 100%; }
+#authModal .shuffle-btn { width: auto; }
+
 @keyframes shine { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
 

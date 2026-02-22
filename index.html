@@ -34,6 +34,7 @@
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
                     <input aria-label="Search movies" type="text" oninput="handleSearch(this.value)" placeholder="Search globally..." class="bg-[#111] border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-red-600/50 transition-all w-48">
                 </div>
+                <button id="authBtn" aria-label="Open auth" onclick="openAuthModal()" class="mr-2 px-3 py-1 rounded-md text-sm bg-white/5 hover:bg-white/10">Sign In</button>
                 <button aria-label="Open watchlist" onclick="switchView('Watchlist')" class="relative p-2 text-gray-400 hover:text-white transition-colors watchlist-btn">
                     <i class="fa-solid fa-bookmark"></i>
                     <span id="watchlistCount" class="absolute -top-1 -right-1 bg-red-600 text-[10px] text-white w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
@@ -204,6 +205,24 @@
 
                 <div id="modalBody" class="p-8 md:p-14 flex-1 flex flex-col justify-center">
                     </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 z-[300] hidden items-center justify-center">
+        <div class="fixed inset-0 bg-black/80" onclick="closeAuthModal()"></div>
+        <div class="relative bg-[#0d0d0d] rounded-xl p-6 w-full max-w-md mx-4">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-white/70">✕</button>
+            <h3 class="text-xl font-black mb-4">Sign In / Create Account</h3>
+            <div class="grid gap-3">
+                <input id="auth-username" placeholder="Username" class="bg-[#111] p-3 rounded" />
+                <input id="auth-password" placeholder="Password" type="password" class="bg-[#111] p-3 rounded" />
+                <div class="flex gap-2">
+                    <button onclick="handleLogin();" class="shuffle-btn py-2 px-4 rounded font-black">Sign In</button>
+                    <button onclick="handleRegister();" class="py-2 px-4 rounded bg-white/5 hover:bg-white/10">Create Account</button>
+                </div>
+                <p id="authMsg" class="text-sm text-gray-400"></p>
             </div>
         </div>
     </div>

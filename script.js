@@ -9,6 +9,112 @@ let genres = [];
 let shuffleRegion = 'All';
 let currentPage = 1;
 let isLoading = false;
+// auth
+let accounts = {};
+let currentUser = localStorage.getItem('nighty_current_user') || null;
+
+function loadAccounts() {
+    accounts = JSON.parse(localStorage.getItem('nighty_accounts')) || {};
+}
+
+function saveAccounts() {
+    localStorage.setItem('nighty_accounts', JSON.stringify(accounts));
+}
+
+function openAuthModal() {
+    document.getElementById('authModal').classList.remove('hidden');
+    document.getElementById('authMsg').innerText = '';
+}
+
+function closeAuthModal() {
+    document.getElementById('authModal').classList.add('hidden');
+}
+
+function arrayBufferToHex(buffer) {
+    const b = new Uint8Array(buffer);
+    return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function genSalt() {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function hashPassword(salt, password) {
+    const enc = new TextEncoder();
+    const data = enc.encode(salt + password);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return arrayBufferToHex(hash);
+}
+
+async function handleRegister() {
+    loadAccounts();
+    const u = (document.getElementById('auth-username').value || '').trim();
+    const p = document.getElementById('auth-password').value || '';
+    const msg = document.getElementById('authMsg');
+    if (!u || !p) { msg.innerText = 'กรุณากรอก username และ password'; return; }
+    if (accounts[u]) { msg.innerText = 'Username already exists'; return; }
+    const salt = genSalt();
+    const h = await hashPassword(salt, p);
+    accounts[u] = { salt, hash: h, watchlist: [] };
+    saveAccounts();
+    msg.innerText = 'Account created. You are logged in.';
+    await loginUser(u, p);
+}
+
+async function handleLogin() {
+    const u = (document.getElementById('auth-username').value || '').trim();
+    const p = document.getElementById('auth-password').value || '';
+    const msg = document.getElementById('authMsg');
+    if (!u || !p) { msg.innerText = 'กรุณากรอก username และ password'; return; }
+    await loginUser(u, p);
+}
+
+async function loginUser(u, p) {
+    loadAccounts();
+    const msg = document.getElementById('authMsg');
+    const acc = accounts[u];
+    if (!acc) { msg.innerText = 'User not found'; return; }
+    const h = await hashPassword(acc.salt, p);
+    if (h !== acc.hash) { msg.innerText = 'Invalid password'; return; }
+    currentUser = u;
+    localStorage.setItem('nighty_current_user', currentUser);
+    // load user's watchlist if present
+    if (Array.isArray(acc.watchlist)) {
+        watchlist = acc.watchlist;
+        localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+    }
+    updateWatchlistCount();
+    updateAuthUI();
+    msg.innerText = '';
+    closeAuthModal();
+}
+
+function logoutUser() {
+    if (currentUser) {
+        loadAccounts();
+        accounts[currentUser] = accounts[currentUser] || {};
+        accounts[currentUser].watchlist = watchlist;
+        saveAccounts();
+    }
+    currentUser = null;
+    localStorage.removeItem('nighty_current_user');
+    // keep local watchlist as is
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    const btn = document.getElementById('authBtn');
+    if (!btn) return;
+    if (currentUser) {
+        btn.innerText = currentUser + ' • Log out';
+        btn.onclick = () => { logoutUser(); };
+    } else {
+        btn.innerText = 'Sign In';
+        btn.onclick = () => openAuthModal();
+    }
+}
 
 // อัปเดต UI ทันทีที่โหลดหน้าเว็บเสร็จ
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,7 +125,36 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed', err));
     }
     getGenres();
+    loadAccounts();
+    // if user logged in, initialize auth UI and load their watchlist
+    if (currentUser) {
+        const acc = accounts[currentUser];
+        if (acc && Array.isArray(acc.watchlist)) {
+            watchlist = acc.watchlist;
+            localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+        }
+    }
+    ensureAuthButton();
+    updateAuthUI();
 });
+
+function ensureAuthButton() {
+    if (document.getElementById('authBtn')) return;
+    const watchBtn = document.querySelector('button[aria-label="Open watchlist"]');
+    const btn = document.createElement('button');
+    btn.id = 'authBtn';
+    btn.setAttribute('aria-label', 'Open auth');
+    btn.className = 'mr-2 px-3 py-1 rounded-md text-sm bg-white/5 hover:bg-white/10';
+    btn.innerText = 'Sign In';
+    btn.onclick = () => openAuthModal();
+    if (watchBtn && watchBtn.parentNode) {
+        watchBtn.parentNode.insertBefore(btn, watchBtn);
+    } else {
+        const navRight = document.querySelector('nav .max-w-7xl');
+        if (navRight) navRight.appendChild(btn);
+        else document.body.prepend(btn);
+    }
+}
 
 // keyboard shortcut: press '/' to focus search
 document.addEventListener('keydown', (e) => {
@@ -272,6 +407,13 @@ async function toggleWatchlist(id) {
 
     // persist full objects
     localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+    // if logged in, sync to account
+    if (currentUser) {
+        loadAccounts();
+        accounts[currentUser] = accounts[currentUser] || {};
+        accounts[currentUser].watchlist = watchlist;
+        saveAccounts();
+    }
     updateWatchlistCount();
 
     // If Browse view is visible, re-render movie grid so button states update immediately.
