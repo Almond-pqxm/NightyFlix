@@ -3,6 +3,7 @@ const BASE_URL = 'https://api.themoviedb.org/3';
 const IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
 let movieDB = []; 
+// store full movie objects in watchlist for fast rendering
 let watchlist = JSON.parse(localStorage.getItem('nighty_global_wl')) || [];
 let shuffleRegion = 'All';
 let currentPage = 1;
@@ -92,16 +93,16 @@ function switchView(viewName) {
 }
 
 function createMovieCard(movie) {
-    const isSaved = watchlist.includes(movie.id);
+    const isSaved = watchlist.some(w => w && w.id === movie.id);
     return `
         <div class="group relative cursor-pointer transition-all duration-500 ease-out hover:-translate-y-3" onclick="openModal(${movie.id})">
             <div class="relative aspect-[2/3] rounded-2xl overflow-hidden bg-[#111] border border-white/5 shadow-xl transition-all duration-500 group-hover:shadow-[0_20px_40px_rgba(220,38,38,0.3)] group-hover:ring-2 group-hover:ring-red-600/50">
-                <img src="${movie.img}" 
+                <img src="${movie.img}" loading="lazy" decoding="async"
                      class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
                      onerror="this.src='https://via.placeholder.com/400x600/111/444?text=${movie.title}'">
                 
                 <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                    <button onclick="event.stopPropagation(); toggleWatchlist(${movie.id})" 
+                    <button onclick="(event && event.stopPropagation) ? event.stopPropagation() : (window.event && (window.event.cancelBubble=true)); toggleWatchlist(${movie.id})" 
                             class="w-full py-2 ${isSaved ? 'bg-red-600' : 'bg-white text-black'} text-[10px] font-bold rounded-lg transition-all mb-2 hover:scale-105 active:scale-95">
                         ${isSaved ? '<i class="fa-solid fa-trash-can mr-1"></i> REMOVE' : '<i class="fa-solid fa-plus mr-1"></i> ADD TO LIST'}
                     </button>
@@ -144,19 +145,49 @@ async function handleSearch(val) {
 }
 
 // --- 3. ระบบ Watchlist ---
-function toggleWatchlist(id) {
-    const idx = watchlist.indexOf(id);
-    if(idx > -1) {
+async function toggleWatchlist(id) {
+    const idx = watchlist.findIndex(item => item && item.id === id);
+    if (idx > -1) {
         watchlist.splice(idx, 1);
         showToast("Removed from List");
     } else {
-        watchlist.push(id);
+        // try to find movie in in-memory DB first
+        let movieObj = movieDB.find(m => m.id === id);
+        if (!movieObj) {
+            try {
+                const res = await fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=th-TH`);
+                const m = await res.json();
+                movieObj = {
+                    id: m.id,
+                    title: m.title || m.name,
+                    year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
+                    region: 'Saved',
+                    rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
+                    img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
+                    desc: m.overview
+                };
+            } catch (err) {
+                console.error('Failed loading movie for watchlist:', err);
+                showToast('ไม่สามารถบันทึกหนังได้ขณะนี้');
+                return;
+            }
+        }
+
+        watchlist.push(movieObj);
         showToast("Saved to List!");
     }
-    
+
+    // persist full objects
     localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
     updateWatchlistCount();
-    
+
+    // If Browse view is visible, re-render movie grid so button states update immediately.
+    const browseView = document.getElementById('view-Browse');
+    if (browseView && !browseView.classList.contains('hidden')) {
+        renderMovies(movieDB);
+    }
+
+    // If Watchlist view is visible, refresh it as well.
     const watchlistView = document.getElementById('view-Watchlist');
     if (watchlistView && !watchlistView.classList.contains('hidden')) {
         renderWatchlist();
@@ -175,19 +206,34 @@ async function renderWatchlist() {
     }
 
     emptyMsg.classList.add('hidden');
-    grid.innerHTML = '<div class="col-span-full text-center py-20 text-gray-500">Loading your list...</div>';
+    grid.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500">Preparing your list...</div>';
 
-    const promises = watchlist.map(id => fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=th-TH`).then(res => res.json()));
-    const movies = await Promise.all(promises);
-
-    const movieData = movies.map(m => ({
-        id: m.id, title: m.title || m.name, rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
-        year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
-        img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
-        region: 'Saved'
+    // Ensure we have full objects; fetch details for any placeholder items
+    const detailed = await Promise.all(watchlist.map(async item => {
+        if (item && item.title) return item;
+        try {
+            const res = await fetch(`${BASE_URL}/movie/${item.id}?api_key=${API_KEY}&language=th-TH`);
+            const m = await res.json();
+            return {
+                id: m.id,
+                title: m.title || m.name,
+                rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
+                year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
+                img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
+                region: 'Saved',
+                desc: m.overview
+            };
+        } catch (err) {
+            console.error('Error fetching watchlist item', err);
+            return { id: item.id, title: 'Unknown', rating: '0.0', year: 'N/A', img: 'https://via.placeholder.com/500x750', region: 'Saved' };
+        }
     }));
 
-    grid.innerHTML = movieData.map(m => createMovieCard(m)).join('');
+    // update stored watchlist to full objects (if any were placeholders)
+    watchlist = detailed;
+    localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+
+    grid.innerHTML = detailed.map(m => createMovieCard(m)).join('');
 }
 
 function updateWatchlistCount() {
@@ -220,11 +266,11 @@ async function openModal(id) {
     try {
         const res = await fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&append_to_response=watch/providers&language=th-TH`);
         const movie = await res.json();
-        const isSaved = watchlist.includes(movie.id);
+        const isSaved = watchlist.some(w => w && w.id === movie.id);
         const providers = movie['watch/providers']?.results?.TH?.flatrate || [];
 
         poster.innerHTML = `
-            <img src="${movie.poster_path ? IMG_URL + movie.poster_path : 'https://via.placeholder.com/500x750'}" class="w-full h-full object-cover">
+            <img src="${movie.poster_path ? IMG_URL + movie.poster_path : 'https://via.placeholder.com/500x750'}" loading="lazy" decoding="async" class="w-full h-full object-cover">
             <div class="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-transparent md:bg-gradient-to-r"></div>
         `;
         
@@ -248,7 +294,7 @@ async function openModal(id) {
                     </div>
                 </div>
                 
-                <button onclick="toggleWatchlist(${movie.id}); openModal(${movie.id})" 
+                <button onclick="toggleWatchlist(${movie.id}).then(()=>openModal(${movie.id}))" 
                         class="mt-auto w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-xl ${isSaved ? 'bg-red-600 text-white' : 'bg-white text-black hover:bg-gray-200'}">
                     <i class="fa-solid ${isSaved ? 'fa-trash-can' : 'fa-plus'} mr-2"></i>
                     ${isSaved ? 'Remove from List' : 'Add to My List'}
@@ -342,14 +388,14 @@ async function performAdvancedShuffle() {
             return;
         }
 
-        gridDiv.innerHTML = uniqueMovies.map(m => `
+           gridDiv.innerHTML = uniqueMovies.map(m => `
             <div onclick="openModal(${m.id})" 
                  class="group relative cursor-pointer transition-all duration-500 ease-out hover:-translate-y-3">
                 
                 <div class="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-lg transition-all duration-500 group-hover:shadow-[0_20px_40px_rgba(220,38,38,0.3)] group-hover:ring-2 group-hover:ring-red-600/50">
-                    <img src="${m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750'}" 
-                         class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
-                         alt="${m.title}">
+                    <img src="${m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750'}" loading="lazy" decoding="async"
+                        class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
+                        alt="${m.title}">
                     
                     <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-4">
                         <div class="flex items-center gap-2 text-yellow-400 text-xs font-bold mb-1">
