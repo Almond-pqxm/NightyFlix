@@ -5,6 +5,7 @@ const IMG_URL = 'https://image.tmdb.org/t/p/w500';
 let movieDB = []; 
 // store full movie objects in watchlist for fast rendering
 let watchlist = JSON.parse(localStorage.getItem('nighty_global_wl')) || [];
+let genres = [];
 let shuffleRegion = 'All';
 let currentPage = 1;
 let isLoading = false;
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed', err));
     }
+    getGenres();
 });
 
 // keyboard shortcut: press '/' to focus search
@@ -29,14 +31,39 @@ document.addEventListener('keydown', (e) => {
 });
 
 // browse filter state
-const browseFilters = { region: '', year: '', sort: 'popular' };
+const browseFilters = { region: '', year: '', sort: 'popular', genre: '' };
+
+async function getGenres() {
+    try {
+        const res = await fetch(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=th-TH`);
+        const data = await res.json();
+        genres = data.genres || [];
+        populateGenreSelects();
+    } catch (err) {
+        console.warn('Failed to load genres', err);
+    }
+}
+
+function populateGenreSelects() {
+    const browse = document.getElementById('browse-genre');
+    const shuffle = document.getElementById('shuffle-genre');
+    if (browse && genres.length) {
+        browse.innerHTML = `<option value="">All Genres</option>` + genres.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    }
+    if (shuffle && genres.length) {
+        // replace shuffle options with API list to keep consistent
+        shuffle.innerHTML = `<option value="">All Genres</option>` + genres.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    }
+}
 
 function applyBrowseFilters() {
     const region = document.getElementById('browse-region')?.value || '';
     const year = document.getElementById('browse-year')?.value || '';
     const sort = document.getElementById('browse-sort')?.value || 'popular';
+    const genre = document.getElementById('browse-genre')?.value || '';
     browseFilters.region = region;
     browseFilters.year = year;
+    browseFilters.genre = genre;
     browseFilters.sort = sort;
     renderMovies(movieDB);
 }
@@ -53,6 +80,9 @@ function filterAndSort(list) {
     let out = Array.isArray(list) ? [...list] : [];
     if (browseFilters.region) {
         out = out.filter(m => m.region === browseFilters.region);
+    }
+    if (browseFilters.genre) {
+        out = out.filter(m => (m.genre_ids || []).map(String).includes(String(browseFilters.genre)));
     }
     if (browseFilters.year) {
         if (browseFilters.year === '2023') out = out.filter(m => (m.year !== 'N/A' && parseInt(m.year) >= 2023));
@@ -72,6 +102,12 @@ async function getMoviesFromAPI(page = 1) {
     if (isLoading) return;
     isLoading = true;
 
+    const grid = document.getElementById('movieGrid');
+    if (page === 1 && grid) {
+        // show skeletons while first page loads
+        grid.innerHTML = Array.from({length: 12}).map(()=>`<div class="skeleton-card"><div class="skeleton w-full h-full"></div><div class="skeleton-title skeleton"></div><div class="skeleton-sub skeleton"></div></div>`).join('');
+    }
+
     try {
         const response = await fetch(`${BASE_URL}/movie/popular?api_key=${API_KEY}&page=${page}&language=th-TH`);
         const data = await response.json();
@@ -88,6 +124,7 @@ async function getMoviesFromAPI(page = 1) {
                 title: m.title || m.name,
                 year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
                 region: regionLabel,
+                genre_ids: m.genre_ids || [],
                 rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
                 img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
                 desc: m.overview
@@ -194,6 +231,7 @@ async function handleSearch(val) {
         year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
         region: 'Result', rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
         img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
+        genre_ids: m.genre_ids || [],
         desc: m.overview
     }));
     renderMovies(results);

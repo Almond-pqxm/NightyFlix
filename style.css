@@ -59,3 +59,11 @@ body {
 /* subtle card hover */
 .group:hover h4 { color: white; }
 
+/* skeleton loaders */
+.skeleton { background: linear-gradient(90deg, #111 25%, #1a1a1a 37%, #111 63%); background-size: 400% 100%; animation: shine 1.2s linear infinite; border-radius: 12px; }
+.skeleton-title { height: 14px; width: 80%; margin-top: 10px; border-radius: 6px; }
+.skeleton-sub { height: 10px; width: 40%; margin-top: 6px; border-radius: 6px; }
+.skeleton-card { height: 0; padding-bottom: 150%; position: relative; border-radius: 18px; overflow: hidden; }
+
+@keyframes shine { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+
