@@ -15,7 +15,7 @@
 </head>
 <body class="bg-[#050505] min-h-screen">
 
-    <nav class="glass-header sticky top-0 z-[100] px-6 py-4">
+    <nav role="navigation" class="glass-header sticky top-0 z-[100] px-6 py-4">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
             <div class="flex items-center gap-8">
                 <div class="flex items-center gap-2 cursor-pointer" onclick="switchView('Browse')">
@@ -23,18 +23,19 @@
                     <span class="text-2xl font-black tracking-tighter uppercase hidden sm:block">Nighty<span class="text-red-600">Flix</span></span>
                 </div>
                 <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-400">
-                    <button onclick="switchView('Browse')" class="nav-link active-tab" id="nav-Browse">Browse</button>
-                    <button onclick="switchView('Shuffle')" class="nav-link" id="nav-Shuffle">Shuffle (สุ่มหนัง)</button>
-                    <button onclick="switchView('Watchlist')" class="nav-link" id="nav-Watchlist">My List</button>
+                    <button aria-label="Open browse" onclick="switchView('Browse')" class="nav-link active-tab" id="nav-Browse">Browse</button>
+                    <button aria-label="Open shuffle" onclick="switchView('Shuffle')" class="nav-link" id="nav-Shuffle">Shuffle (สุ่มหนัง)</button>
+                    <button aria-label="Open my list" onclick="switchView('Watchlist')" class="nav-link" id="nav-Watchlist">My List</button>
                 </div>
             </div>
             
             <div class="flex items-center gap-4">
                 <div class="relative hidden sm:block">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
-                    <input type="text" oninput="handleSearch(this.value)" placeholder="Search globally..." class="bg-[#111] border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-red-600/50 transition-all w-48">
+                    <input aria-label="Search movies" type="text" oninput="handleSearch(this.value)" placeholder="Search globally..." class="bg-[#111] border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-red-600/50 transition-all w-48">
                 </div>
-                <button onclick="switchView('Watchlist')" class="relative p-2 text-gray-400 hover:text-white transition-colors">
+                <button id="authBtn" aria-label="Open auth" onclick="openAuthModal()" class="mr-2 px-3 py-1 rounded-md text-sm bg-white/5 hover:bg-white/10">Sign In</button>
+                <button aria-label="Open watchlist" onclick="switchView('Watchlist')" class="relative p-2 text-gray-400 hover:text-white transition-colors watchlist-btn">
                     <i class="fa-solid fa-bookmark"></i>
                     <span id="watchlistCount" class="absolute -top-1 -right-1 bg-red-600 text-[10px] text-white w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
                 </button>
@@ -47,6 +48,39 @@
             <div class="mb-10 flex flex-wrap items-center justify-between gap-4">
                 <h2 class="text-3xl font-black">TOP <span class="text-red-600">GLOBAL</span> PICKS</h2>
             </div>
+            <div class="mb-6 flex flex-wrap items-center gap-3">
+                <label class="text-xs text-gray-400">Region</label>
+                <select id="browse-region" aria-label="Filter by region" onchange="applyBrowseFilters()" class="bg-[#111] border border-white/10 rounded-xl p-2 text-sm">
+                    <option value="">All</option>
+                    <option value="Global">Global</option>
+                    <option value="Hollywood">Hollywood</option>
+                    <option value="Asia">Asia</option>
+                    <option value="Anime">Anime</option>
+                </select>
+
+                <label class="text-xs text-gray-400">Genre</label>
+                <select id="browse-genre" aria-label="Filter by genre" onchange="applyBrowseFilters()" class="bg-[#111] border border-white/10 rounded-xl p-2 text-sm">
+                    <option value="">All Genres</option>
+                </select>
+
+                <label class="text-xs text-gray-400">Year</label>
+                <select id="browse-year" aria-label="Filter by year" onchange="applyBrowseFilters()" class="bg-[#111] border border-white/10 rounded-xl p-2 text-sm">
+                    <option value="">All</option>
+                    <option value="2023">2023+</option>
+                    <option value="2010">2010-2022</option>
+                    <option value="2000">2000 & below</option>
+                </select>
+
+                <label class="text-xs text-gray-400">Sort</label>
+                <select id="browse-sort" aria-label="Sort movies" onchange="applyBrowseFilters()" class="bg-[#111] border border-white/10 rounded-xl p-2 text-sm">
+                    <option value="popular">Popularity</option>
+                    <option value="rating">Rating ↓</option>
+                    <option value="year-desc">Year ↓</option>
+                </select>
+
+                <button id="surpriseBtn" onclick="surpriseMe()" aria-label="Surprise me" class="ml-auto py-2 px-4 rounded-xl shuffle-btn text-sm font-black">Surprise Me</button>
+            </div>
+
             <div id="movieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"></div>
         </section>
 
@@ -171,6 +205,24 @@
 
                 <div id="modalBody" class="p-8 md:p-14 flex-1 flex flex-col justify-center">
                     </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 z-[300] hidden items-center justify-center">
+        <div class="fixed inset-0 bg-black/80" onclick="closeAuthModal()"></div>
+        <div class="relative bg-[#0d0d0d] rounded-xl p-6 w-full max-w-md mx-4">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-white/70">✕</button>
+            <h3 class="text-xl font-black mb-4">Sign In / Create Account</h3>
+            <div class="grid gap-3">
+                <input id="auth-username" placeholder="Username" class="bg-[#111] p-3 rounded" />
+                <input id="auth-password" placeholder="Password" type="password" class="bg-[#111] p-3 rounded" />
+                <div class="flex gap-2">
+                    <button onclick="handleLogin();" class="shuffle-btn py-2 px-4 rounded font-black">Sign In</button>
+                    <button onclick="handleRegister();" class="py-2 px-4 rounded bg-white/5 hover:bg-white/10">Create Account</button>
+                </div>
+                <p id="authMsg" class="text-sm text-gray-400"></p>
             </div>
         </div>
     </div>

@@ -3,21 +3,245 @@ const BASE_URL = 'https://api.themoviedb.org/3';
 const IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
 let movieDB = []; 
+// store full movie objects in watchlist for fast rendering
 let watchlist = JSON.parse(localStorage.getItem('nighty_global_wl')) || [];
+let genres = [];
 let shuffleRegion = 'All';
 let currentPage = 1;
 let isLoading = false;
+// auth
+let accounts = {};
+let currentUser = localStorage.getItem('nighty_current_user') || null;
+
+function loadAccounts() {
+    accounts = JSON.parse(localStorage.getItem('nighty_accounts')) || {};
+}
+
+function saveAccounts() {
+    localStorage.setItem('nighty_accounts', JSON.stringify(accounts));
+}
+
+function openAuthModal() {
+    document.getElementById('authModal').classList.remove('hidden');
+    document.getElementById('authMsg').innerText = '';
+}
+
+function closeAuthModal() {
+    document.getElementById('authModal').classList.add('hidden');
+}
+
+function arrayBufferToHex(buffer) {
+    const b = new Uint8Array(buffer);
+    return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function genSalt() {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function hashPassword(salt, password) {
+    const enc = new TextEncoder();
+    const data = enc.encode(salt + password);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return arrayBufferToHex(hash);
+}
+
+async function handleRegister() {
+    loadAccounts();
+    const u = (document.getElementById('auth-username').value || '').trim();
+    const p = document.getElementById('auth-password').value || '';
+    const msg = document.getElementById('authMsg');
+    if (!u || !p) { msg.innerText = 'กรุณากรอก username และ password'; return; }
+    if (accounts[u]) { msg.innerText = 'Username already exists'; return; }
+    const salt = genSalt();
+    const h = await hashPassword(salt, p);
+    accounts[u] = { salt, hash: h, watchlist: [] };
+    saveAccounts();
+    msg.innerText = 'Account created. You are logged in.';
+    await loginUser(u, p);
+}
+
+async function handleLogin() {
+    const u = (document.getElementById('auth-username').value || '').trim();
+    const p = document.getElementById('auth-password').value || '';
+    const msg = document.getElementById('authMsg');
+    if (!u || !p) { msg.innerText = 'กรุณากรอก username และ password'; return; }
+    await loginUser(u, p);
+}
+
+async function loginUser(u, p) {
+    loadAccounts();
+    const msg = document.getElementById('authMsg');
+    const acc = accounts[u];
+    if (!acc) { msg.innerText = 'User not found'; return; }
+    const h = await hashPassword(acc.salt, p);
+    if (h !== acc.hash) { msg.innerText = 'Invalid password'; return; }
+    currentUser = u;
+    localStorage.setItem('nighty_current_user', currentUser);
+    // load user's watchlist if present
+    if (Array.isArray(acc.watchlist)) {
+        watchlist = acc.watchlist;
+        localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+    }
+    updateWatchlistCount();
+    updateAuthUI();
+    msg.innerText = '';
+    closeAuthModal();
+}
+
+function logoutUser() {
+    if (currentUser) {
+        loadAccounts();
+        accounts[currentUser] = accounts[currentUser] || {};
+        accounts[currentUser].watchlist = watchlist;
+        saveAccounts();
+    }
+    currentUser = null;
+    localStorage.removeItem('nighty_current_user');
+    // keep local watchlist as is
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    const btn = document.getElementById('authBtn');
+    if (!btn) return;
+    if (currentUser) {
+        btn.innerText = currentUser + ' • Log out';
+        btn.onclick = () => { logoutUser(); };
+    } else {
+        btn.innerText = 'Sign In';
+        btn.onclick = () => openAuthModal();
+    }
+}
 
 // อัปเดต UI ทันทีที่โหลดหน้าเว็บเสร็จ
 document.addEventListener('DOMContentLoaded', () => {
     updateWatchlistCount();
     getMoviesFromAPI(currentPage);
+    // register service worker for caching if supported
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed', err));
+    }
+    getGenres();
+    loadAccounts();
+    // if user logged in, initialize auth UI and load their watchlist
+    if (currentUser) {
+        const acc = accounts[currentUser];
+        if (acc && Array.isArray(acc.watchlist)) {
+            watchlist = acc.watchlist;
+            localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+        }
+    }
+    ensureAuthButton();
+    updateAuthUI();
 });
+
+function ensureAuthButton() {
+    if (document.getElementById('authBtn')) return;
+    const watchBtn = document.querySelector('button[aria-label="Open watchlist"]');
+    const btn = document.createElement('button');
+    btn.id = 'authBtn';
+    btn.setAttribute('aria-label', 'Open auth');
+    btn.className = 'mr-2 px-3 py-1 rounded-md text-sm bg-white/5 hover:bg-white/10';
+    btn.innerText = 'Sign In';
+    btn.onclick = () => openAuthModal();
+    if (watchBtn && watchBtn.parentNode) {
+        watchBtn.parentNode.insertBefore(btn, watchBtn);
+    } else {
+        const navRight = document.querySelector('nav .max-w-7xl');
+        if (navRight) navRight.appendChild(btn);
+        else document.body.prepend(btn);
+    }
+}
+
+// keyboard shortcut: press '/' to focus search
+document.addEventListener('keydown', (e) => {
+    const active = document.activeElement;
+    if (e.key === '/' && active && active.tagName.toLowerCase() !== 'input' && active.tagName.toLowerCase() !== 'textarea') {
+        const search = document.querySelector('input[aria-label="Search movies"]');
+        if (search) { e.preventDefault(); search.focus(); }
+    }
+});
+
+// browse filter state
+const browseFilters = { region: '', year: '', sort: 'popular', genre: '' };
+
+async function getGenres() {
+    try {
+        const res = await fetch(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=th-TH`);
+        const data = await res.json();
+        genres = data.genres || [];
+        populateGenreSelects();
+    } catch (err) {
+        console.warn('Failed to load genres', err);
+    }
+}
+
+function populateGenreSelects() {
+    const browse = document.getElementById('browse-genre');
+    const shuffle = document.getElementById('shuffle-genre');
+    if (browse && genres.length) {
+        browse.innerHTML = `<option value="">All Genres</option>` + genres.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    }
+    if (shuffle && genres.length) {
+        // replace shuffle options with API list to keep consistent
+        shuffle.innerHTML = `<option value="">All Genres</option>` + genres.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    }
+}
+
+function applyBrowseFilters() {
+    const region = document.getElementById('browse-region')?.value || '';
+    const year = document.getElementById('browse-year')?.value || '';
+    const sort = document.getElementById('browse-sort')?.value || 'popular';
+    const genre = document.getElementById('browse-genre')?.value || '';
+    browseFilters.region = region;
+    browseFilters.year = year;
+    browseFilters.genre = genre;
+    browseFilters.sort = sort;
+    renderMovies(movieDB);
+}
+
+function surpriseMe() {
+    // pick from currently filtered list
+    const filtered = filterAndSort(movieDB);
+    if (!filtered || filtered.length === 0) { showToast('ไม่พบหนังสำหรับสุ่ม'); return; }
+    const pick = filtered[Math.floor(Math.random() * filtered.length)];
+    if (pick) openModal(pick.id);
+}
+
+function filterAndSort(list) {
+    let out = Array.isArray(list) ? [...list] : [];
+    if (browseFilters.region) {
+        out = out.filter(m => m.region === browseFilters.region);
+    }
+    if (browseFilters.genre) {
+        out = out.filter(m => (m.genre_ids || []).map(String).includes(String(browseFilters.genre)));
+    }
+    if (browseFilters.year) {
+        if (browseFilters.year === '2023') out = out.filter(m => (m.year !== 'N/A' && parseInt(m.year) >= 2023));
+        else if (browseFilters.year === '2010') out = out.filter(m => (m.year !== 'N/A' && parseInt(m.year) >= 2010 && parseInt(m.year) <= 2022));
+        else if (browseFilters.year === '2000') out = out.filter(m => (m.year === 'N/A' || parseInt(m.year) <= 2000));
+    }
+    if (browseFilters.sort === 'rating') {
+        out.sort((a,b) => parseFloat(b.rating) - parseFloat(a.rating));
+    } else if (browseFilters.sort === 'year-desc') {
+        out.sort((a,b) => (b.year === 'N/A' ? 0 : parseInt(b.year)) - (a.year === 'N/A' ? 0 : parseInt(a.year)));
+    }
+    return out;
+}
 
 // --- 1. ระบบจัดการเลื่อนโหลดหนัง (Infinite Scroll) ---
 async function getMoviesFromAPI(page = 1) {
     if (isLoading) return;
     isLoading = true;
+
+    const grid = document.getElementById('movieGrid');
+    if (page === 1 && grid) {
+        // show skeletons while first page loads
+        grid.innerHTML = Array.from({length: 12}).map(()=>`<div class="skeleton-card"><div class="skeleton w-full h-full"></div><div class="skeleton-title skeleton"></div><div class="skeleton-sub skeleton"></div></div>`).join('');
+    }
 
     try {
         const response = await fetch(`${BASE_URL}/movie/popular?api_key=${API_KEY}&page=${page}&language=th-TH`);
@@ -35,6 +259,7 @@ async function getMoviesFromAPI(page = 1) {
                 title: m.title || m.name,
                 year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
                 region: regionLabel,
+                genre_ids: m.genre_ids || [],
                 rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
                 img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
                 desc: m.overview
@@ -92,16 +317,16 @@ function switchView(viewName) {
 }
 
 function createMovieCard(movie) {
-    const isSaved = watchlist.includes(movie.id);
+    const isSaved = watchlist.some(w => w && w.id === movie.id);
     return `
         <div class="group relative cursor-pointer transition-all duration-500 ease-out hover:-translate-y-3" onclick="openModal(${movie.id})">
             <div class="relative aspect-[2/3] rounded-2xl overflow-hidden bg-[#111] border border-white/5 shadow-xl transition-all duration-500 group-hover:shadow-[0_20px_40px_rgba(220,38,38,0.3)] group-hover:ring-2 group-hover:ring-red-600/50">
-                <img src="${movie.img}" 
+                <img src="${movie.img}" loading="lazy" decoding="async"
                      class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
                      onerror="this.src='https://via.placeholder.com/400x600/111/444?text=${movie.title}'">
                 
                 <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                    <button onclick="event.stopPropagation(); toggleWatchlist(${movie.id})" 
+                    <button onclick="(event && event.stopPropagation) ? event.stopPropagation() : (window.event && (window.event.cancelBubble=true)); toggleWatchlist(${movie.id})" 
                             class="w-full py-2 ${isSaved ? 'bg-red-600' : 'bg-white text-black'} text-[10px] font-bold rounded-lg transition-all mb-2 hover:scale-105 active:scale-95">
                         ${isSaved ? '<i class="fa-solid fa-trash-can mr-1"></i> REMOVE' : '<i class="fa-solid fa-plus mr-1"></i> ADD TO LIST'}
                     </button>
@@ -126,7 +351,10 @@ function createMovieCard(movie) {
 
 function renderMovies(list) {
     const grid = document.getElementById('movieGrid');
-    if(grid) grid.innerHTML = list.map(m => createMovieCard(m)).join('');
+    if(grid) {
+        const visible = filterAndSort(list);
+        grid.innerHTML = visible.map(m => createMovieCard(m)).join('');
+    }
 }
 
 async function handleSearch(val) {
@@ -138,25 +366,63 @@ async function handleSearch(val) {
         year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
         region: 'Result', rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
         img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
+        genre_ids: m.genre_ids || [],
         desc: m.overview
     }));
     renderMovies(results);
 }
 
 // --- 3. ระบบ Watchlist ---
-function toggleWatchlist(id) {
-    const idx = watchlist.indexOf(id);
-    if(idx > -1) {
+async function toggleWatchlist(id) {
+    const idx = watchlist.findIndex(item => item && item.id === id);
+    if (idx > -1) {
         watchlist.splice(idx, 1);
         showToast("Removed from List");
     } else {
-        watchlist.push(id);
+        // try to find movie in in-memory DB first
+        let movieObj = movieDB.find(m => m.id === id);
+        if (!movieObj) {
+            try {
+                const res = await fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=th-TH`);
+                const m = await res.json();
+                movieObj = {
+                    id: m.id,
+                    title: m.title || m.name,
+                    year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
+                    region: 'Saved',
+                    rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
+                    img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
+                    desc: m.overview
+                };
+            } catch (err) {
+                console.error('Failed loading movie for watchlist:', err);
+                showToast('ไม่สามารถบันทึกหนังได้ขณะนี้');
+                return;
+            }
+        }
+
+        watchlist.push(movieObj);
         showToast("Saved to List!");
     }
-    
+
+    // persist full objects
     localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+    // if logged in, sync to account
+    if (currentUser) {
+        loadAccounts();
+        accounts[currentUser] = accounts[currentUser] || {};
+        accounts[currentUser].watchlist = watchlist;
+        saveAccounts();
+    }
     updateWatchlistCount();
-    
+
+    // If Browse view is visible, re-render movie grid so button states update immediately.
+    const browseView = document.getElementById('view-Browse');
+    if (browseView && !browseView.classList.contains('hidden')) {
+        renderMovies(movieDB);
+    }
+
+    // If Watchlist view is visible, refresh it as well.
     const watchlistView = document.getElementById('view-Watchlist');
     if (watchlistView && !watchlistView.classList.contains('hidden')) {
         renderWatchlist();
@@ -175,19 +441,34 @@ async function renderWatchlist() {
     }
 
     emptyMsg.classList.add('hidden');
-    grid.innerHTML = '<div class="col-span-full text-center py-20 text-gray-500">Loading your list...</div>';
+    grid.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500">Preparing your list...</div>';
 
-    const promises = watchlist.map(id => fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=th-TH`).then(res => res.json()));
-    const movies = await Promise.all(promises);
-
-    const movieData = movies.map(m => ({
-        id: m.id, title: m.title || m.name, rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
-        year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
-        img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
-        region: 'Saved'
+    // Ensure we have full objects; fetch details for any placeholder items
+    const detailed = await Promise.all(watchlist.map(async item => {
+        if (item && item.title) return item;
+        try {
+            const res = await fetch(`${BASE_URL}/movie/${item.id}?api_key=${API_KEY}&language=th-TH`);
+            const m = await res.json();
+            return {
+                id: m.id,
+                title: m.title || m.name,
+                rating: m.vote_average ? m.vote_average.toFixed(1) : '0.0',
+                year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
+                img: m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750',
+                region: 'Saved',
+                desc: m.overview
+            };
+        } catch (err) {
+            console.error('Error fetching watchlist item', err);
+            return { id: item.id, title: 'Unknown', rating: '0.0', year: 'N/A', img: 'https://via.placeholder.com/500x750', region: 'Saved' };
+        }
     }));
 
-    grid.innerHTML = movieData.map(m => createMovieCard(m)).join('');
+    // update stored watchlist to full objects (if any were placeholders)
+    watchlist = detailed;
+    localStorage.setItem('nighty_global_wl', JSON.stringify(watchlist));
+
+    grid.innerHTML = detailed.map(m => createMovieCard(m)).join('');
 }
 
 function updateWatchlistCount() {
@@ -220,11 +501,11 @@ async function openModal(id) {
     try {
         const res = await fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&append_to_response=watch/providers&language=th-TH`);
         const movie = await res.json();
-        const isSaved = watchlist.includes(movie.id);
+        const isSaved = watchlist.some(w => w && w.id === movie.id);
         const providers = movie['watch/providers']?.results?.TH?.flatrate || [];
 
         poster.innerHTML = `
-            <img src="${movie.poster_path ? IMG_URL + movie.poster_path : 'https://via.placeholder.com/500x750'}" class="w-full h-full object-cover">
+            <img src="${movie.poster_path ? IMG_URL + movie.poster_path : 'https://via.placeholder.com/500x750'}" loading="lazy" decoding="async" class="w-full h-full object-cover">
             <div class="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-transparent md:bg-gradient-to-r"></div>
         `;
         
@@ -239,16 +520,21 @@ async function openModal(id) {
                     ${movie.overview || 'ไม่มีเรื่องย่อในภาษาไทย'}
                 </p>
 
-                <div class="bg-white/5 p-4 rounded-xl border border-white/10 mb-8">
-                    <p class="text-[10px] text-red-500 font-bold uppercase mb-3 tracking-widest italic">Available On (TH)</p>
-                    <div class="flex gap-3">
-                        ${providers.length > 0 ? 
-                            providers.map(p => `<img src="${IMG_URL}${p.logo_path}" title="${p.provider_name}" class="w-8 h-8 rounded-lg">`).join('') 
-                            : '<span class="text-gray-500 text-[10px] italic">NO STREAMING IN TH</span>'}
-                    </div>
-                </div>
+                        <div class="bg-white/5 p-4 rounded-xl border border-white/10 mb-8">
+                            <p class="text-[10px] text-red-500 font-bold uppercase mb-3 tracking-widest italic">Available On (TH)</p>
+                            <div class="flex gap-3 items-center">
+                                ${providers.length > 0 ? 
+                                    providers.map(p => {
+                                        const logo = p.logo_path ? IMG_URL + p.logo_path : '';
+                                        const q = encodeURIComponent((movie.title || movie.name) + ' ' + p.provider_name + ' watch');
+                                        const href = `https://www.google.com/search?q=${q}`;
+                                        return `<a href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Open ${p.provider_name}" class="inline-block"><img src="${logo}" title="${p.provider_name}" class="w-8 h-8 rounded-lg"></a>`;
+                                    }).join('') 
+                                    : '<span class="text-gray-500 text-[10px] italic">NO STREAMING IN TH</span>'}
+                            </div>
+                        </div>
                 
-                <button onclick="toggleWatchlist(${movie.id}); openModal(${movie.id})" 
+                <button onclick="toggleWatchlist(${movie.id}).then(()=>openModal(${movie.id}))" 
                         class="mt-auto w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-xl ${isSaved ? 'bg-red-600 text-white' : 'bg-white text-black hover:bg-gray-200'}">
                     <i class="fa-solid ${isSaved ? 'fa-trash-can' : 'fa-plus'} mr-2"></i>
                     ${isSaved ? 'Remove from List' : 'Add to My List'}
@@ -342,14 +628,14 @@ async function performAdvancedShuffle() {
             return;
         }
 
-        gridDiv.innerHTML = uniqueMovies.map(m => `
+           gridDiv.innerHTML = uniqueMovies.map(m => `
             <div onclick="openModal(${m.id})" 
                  class="group relative cursor-pointer transition-all duration-500 ease-out hover:-translate-y-3">
                 
                 <div class="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-lg transition-all duration-500 group-hover:shadow-[0_20px_40px_rgba(220,38,38,0.3)] group-hover:ring-2 group-hover:ring-red-600/50">
-                    <img src="${m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750'}" 
-                         class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
-                         alt="${m.title}">
+                    <img src="${m.poster_path ? IMG_URL + m.poster_path : 'https://via.placeholder.com/500x750'}" loading="lazy" decoding="async"
+                        class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
+                        alt="${m.title}">
                     
                     <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-4">
                         <div class="flex items-center gap-2 text-yellow-400 text-xs font-bold mb-1">
