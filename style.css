@@ -70,4 +70,40 @@ body {
 #authModal .shuffle-btn { width: auto; }
 
 @keyframes shine { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+/* 1. จัดการเรื่องภาพ Poster ให้สวยงามเสมอ */
+img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+/* 2. ปรับแต่ง Scrollbar ของ Modal ให้ดู Minimal (สีแดงตามธีม) */
+#modalBody::-webkit-scrollbar {
+    width: 4px;
+}
+#modalBody::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+#modalBody::-webkit-scrollbar-thumb {
+    background: #ef4444;
+    border-radius: 10px;
+}
+
+/* 3. เพิ่มความสวยงามให้พื้นหลัง Modal (Glassmorphism) */
+.glass-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 4. แก้ปัญหาปุ่ม ADD TO LIST ใน Modal ที่อาจจะดูจืดไป */
+.modal-action-btn {
+    transition: all 0.2s ease;
+}
+.modal-action-btn:active {
+    transform: scale(0.95);
+}
+
+/* 5. เอฟเฟกต์ Glow เพิ่มเติมสำหรับการ์ดที่เน้นสีแดง */
+.red-glow-hover:hover {
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.25);
+}
 
