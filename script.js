@@ -490,32 +490,34 @@ async function openModal(id) {
     const poster = document.getElementById('modalPoster');
     const body = document.getElementById('modalBody');
 
-    // โชว์ Loading สั้นๆ
+    // ล้างข้อมูลเก่าและโชว์ Loading
     body.innerHTML = '<div class="h-full flex items-center justify-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div></div>';
     modal.classList.remove('hidden');
-    modal.style.display = 'flex'; 
+    modal.style.display = 'flex'; // จัดตำแหน่ง Modal ให้อยู่กลางจอ
     document.body.style.overflow = 'hidden';
 
     try {
         const res = await fetch(`${BASE_URL}/movie/${id}?api_key=${API_KEY}&append_to_response=watch/providers&language=th-TH`);
         const movie = await res.json();
-        const isSaved = watchlist.includes(movie.id);
+        const isSaved = watchlist.some(w => w && w.id === movie.id);
         const providers = movie['watch/providers']?.results?.TH?.flatrate || [];
 
-        // ส่วนที่ 1: จัดการรูป Poster
-        poster.innerHTML = `<img src="${IMG_URL + movie.poster_path}" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-transparent md:bg-gradient-to-r"></div>`;
+        // 1. จัดการรูป Poster
+        poster.innerHTML = `
+            <img src="${movie.poster_path ? IMG_URL + movie.poster_path : 'https://via.placeholder.com/500x750'}" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-t from-[#0d0d0d] via-transparent to-transparent md:bg-gradient-to-r"></div>
+        `;
         
-        // ส่วนที่ 2: เช็กว่ามี Streaming ไหม ถ้าไม่มีจะไม่แสดงกล่องเลย เพื่อลบช่องว่าง
+        // 2. ตรวจสอบ Streaming: ถ้าไม่มี จะไม่แสดง HTML ส่วนนี้เลย (ลบช่องว่าง)
         const providerHTML = providers.length > 0 ? `
-            <div class="bg-white/5 p-4 rounded-xl border border-white/10 mb-6 w-full">
+            <div class="bg-white/5 p-4 rounded-xl border border-white/10 mb-8 w-full">
                 <p class="text-[10px] text-red-500 font-bold uppercase mb-3 tracking-widest italic text-center">Available On (TH)</p>
                 <div class="flex gap-3 justify-center items-center">
                     ${providers.map(p => `<img src="${IMG_URL}${p.logo_path}" title="${p.provider_name}" class="w-8 h-8 rounded-lg shadow-lg">`).join('')}
                 </div>
             </div>` : ''; 
 
-        // ส่วนที่ 3: ฉีด HTML แบบจัดกึ่งกลาง (text-center และ items-center)
+        // 3. ฉีด HTML แบบจัดกึ่งกลาง (เพิ่ม items-center และ text-center)
         body.innerHTML = `
             <div class="flex flex-col items-center text-center h-full w-full">
                 <div class="flex items-center justify-center gap-2 mb-4 text-[10px] font-bold">
@@ -523,15 +525,15 @@ async function openModal(id) {
                     <span class="text-gray-400">${movie.runtime || '?'}m</span>
                 </div>
 
-                <h2 class="text-3xl md:text-5xl font-black mb-4 text-white leading-tight w-full">${movie.title}</h2>
+                <h2 class="text-3xl md:text-5xl font-black mb-4 text-white leading-tight w-full">${movie.title || movie.name}</h2>
                 
-                <p class="text-gray-400 leading-relaxed mb-8 text-sm md:text-base px-4 max-h-48 overflow-y-auto hide-scroll">
+                <p class="text-gray-400 leading-relaxed mb-8 text-sm md:text-base px-2 max-h-48 overflow-y-auto hide-scroll w-full">
                     ${movie.overview || 'ไม่มีเรื่องย่อในภาษาไทย'}
                 </p>
 
                 ${providerHTML}
                 
-                <button onclick="toggleWatchlist(${movie.id}); openModal(${movie.id})" 
+                <button onclick="toggleWatchlist(${movie.id}).then(()=>openModal(${movie.id}))" 
                         class="mt-auto w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-xl ${isSaved ? 'bg-red-600 text-white' : 'bg-white text-black hover:bg-gray-200'}">
                     <i class="fa-solid ${isSaved ? 'fa-trash-can' : 'fa-plus'} mr-2"></i>
                     ${isSaved ? 'Remove from List' : 'Add to My List'}
@@ -540,10 +542,9 @@ async function openModal(id) {
         `;
     } catch (error) {
         console.error(error);
-        body.innerHTML = '<p class="text-red-500">Error loading data.</p>';
+        body.innerHTML = '<p class="text-red-500 w-full text-center">Error loading movie data.</p>';
     }
 }
-
 function closeModal() {
     const modal = document.getElementById('movieModal');
     modal.classList.add('hidden');
@@ -660,3 +661,4 @@ async function performAdvancedShuffle() {
     }
 
 }
+
